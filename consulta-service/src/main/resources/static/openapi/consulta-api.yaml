@@ -1,0 +1,239 @@
+# Contract-first: este archivo se escribe ANTES que el codigo Java.
+# El plugin openapi-generator genera de aqui la interfaz ConsultaApi y los DTOs (*Dto).
+# Feature 1 - Consulta publica del estado de cuenta (sin login).
+openapi: 3.0.3
+info:
+  title: Consulta Publica API - Oficina del Agua
+  description: |
+    Permite a un vecino consultar el estado de cuenta de su contador usando solo el codigo
+    del contador. Es una API de SOLO LECTURA sobre la base del monolito.
+
+    **Proteccion contra abuso (dos barreras independientes):**
+    1. Captcha: lo valida el BFF (Next.js) antes de llamar a esta API.
+    2. Rate limit por IP: lo aplica esta API. Como el BFF es quien la llama, la IP real del
+       visitante llega en la cabecera `X-Forwarded-For`; sin ella todos los visitantes
+       parecerian la misma IP.
+
+    **Privacidad:** nunca se devuelve NIT, DPI, telefono, email ni direccion de notificacion.
+    El nombre del titular se devuelve abreviado.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8081
+    description: Local
+tags:
+  - name: Consulta
+    description: Estado de cuenta publico
+
+paths:
+  /api/v1/consulta/{codigoContador}:
+    get:
+      tags: [Consulta]
+      operationId: consultarEstadoDeCuenta
+      summary: Estado de cuenta de un contador
+      description: |
+        Devuelve los datos basicos del servicio, el saldo pendiente, las ultimas boletas y
+        los ultimos pagos del contador. El estado de cada boleta se calcula (no esta
+        almacenado): ANULADA si fue anulada; PAGADA si los pagos no revertidos cubren el
+        monto; VENCIDA si no esta pagada y ya paso su fecha de vencimiento; PENDIENTE en
+        otro caso.
+      parameters:
+        - $ref: '#/components/parameters/CodigoContador'
+      responses:
+        '200':
+          description: Estado de cuenta encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoDeCuenta'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+components:
+  parameters:
+    CodigoContador:
+      name: codigoContador
+      in: path
+      required: true
+      description: |
+        Codigo del contador tal como aparece en la boleta (por ejemplo CTR-0001).
+        El prefijo y la longitud son configurables en el monolito, por eso el patron
+        solo restringe los caracteres permitidos.
+      schema:
+        type: string
+        minLength: 3
+        maxLength: 30
+        pattern: '^[A-Za-z0-9-]+$'
+        example: CTR-0001
+
+  schemas:
+    EstadoDeCuenta:
+      type: object
+      required: [contador, titular, resumen, boletas, pagos, consultadoEn]
+      properties:
+        contador:
+          $ref: '#/components/schemas/Contador'
+        titular:
+          type: string
+          description: Nombre abreviado del titular (primer nombre completo, resto en iniciales)
+          example: María F. L. C.
+        resumen:
+          $ref: '#/components/schemas/Resumen'
+        boletas:
+          type: array
+          description: Ultimas boletas, de la mas reciente a la mas antigua (maximo 12)
+          maxItems: 12
+          items:
+            $ref: '#/components/schemas/Boleta'
+        pagos:
+          type: array
+          description: Ultimos pagos no revertidos, del mas reciente al mas antiguo (maximo 12)
+          maxItems: 12
+          items:
+            $ref: '#/components/schemas/Pago'
+        consultadoEn:
+          type: string
+          format: date-time
+          description: Momento de la consulta (UTC)
+
+    Contador:
+      type: object
+      required: [codigo, estado, paja, ubicacion]
+      properties:
+        codigo:
+          type: string
+          example: CTR-0001
+        estado:
+          type: string
+          enum: [ACTIVO, INACTIVO, DANADO]
+        paja:
+          type: string
+          description: Caudal contratado
+          example: 1 paja
+        ubicacion:
+          type: string
+          description: Ubicacion del servicio (sector, aldea, zona, calle). No es la direccion de notificacion del titular.
+          example: Sector Centro, zona 1, 4a calle 5-20
+
+    Resumen:
+      type: object
+      required: [saldoPendiente, boletasPendientes, boletasVencidas]
+      properties:
+        saldoPendiente:
+          type: number
+          description: Suma de saldos de boletas no anuladas (PENDIENTE y VENCIDA), en quetzales
+          example: 115.00
+        boletasPendientes:
+          type: integer
+          description: Cantidad de boletas PENDIENTE (aun no vencen)
+          example: 1
+        boletasVencidas:
+          type: integer
+          description: Cantidad de boletas VENCIDA
+          example: 1
+        ultimoPeriodo:
+          type: string
+          description: Ultimo periodo con boleta, formato AAAA-MM. Ausente si no hay boletas.
+          example: '2026-09'
+
+    Boleta:
+      type: object
+      required: [folio, periodo, consumoM3, monto, montoPagado, saldo, fechaEmision, fechaVencimiento, estado]
+      properties:
+        folio:
+          type: string
+          example: B-2026-000011
+        periodo:
+          type: string
+          description: Formato AAAA-MM
+          example: '2026-09'
+        consumoM3:
+          type: number
+          example: 21.00
+        monto:
+          type: number
+          description: Total de la boleta en quetzales
+          example: 66.00
+        montoPagado:
+          type: number
+          description: Suma de pagos no revertidos
+          example: 66.00
+        saldo:
+          type: number
+          description: Lo que aun se debe (0 si esta pagada o anulada)
+          example: 0.00
+        fechaEmision:
+          type: string
+          format: date
+        fechaVencimiento:
+          type: string
+          format: date
+        estado:
+          type: string
+          enum: [PENDIENTE, VENCIDA, PAGADA, ANULADA]
+
+    Pago:
+      type: object
+      required: [folio, fechaPago, monto, metodo, folioBoleta]
+      properties:
+        folio:
+          type: string
+          example: R-2026-000010
+        fechaPago:
+          type: string
+          format: date
+        monto:
+          type: number
+          example: 66.00
+        metodo:
+          type: string
+          description: Nombre del metodo de pago
+          example: Efectivo
+        folioBoleta:
+          type: string
+          description: Boleta a la que se aplico el pago
+          example: B-2026-000011
+
+    Error:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: integer
+          example: 404
+        message:
+          type: string
+          example: No se encontró un contador con ese código
+        details:
+          type: array
+          items:
+            type: string
+
+  responses:
+    BadRequest:
+      description: Codigo con formato invalido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: No existe un contador activo con ese codigo
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooManyRequests:
+      description: Demasiadas consultas desde la misma IP; reintentar despues
+      headers:
+        Retry-After:
+          description: Segundos que hay que esperar antes de reintentar
+          schema:
+            type: integer
+            example: 30
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

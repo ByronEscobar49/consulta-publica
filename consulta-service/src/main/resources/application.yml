@@ -1,0 +1,27 @@
+# La variable de entorno gana; el valor despues de ":" es solo para desarrollo local.
+server:
+  port: ${SERVER_PORT:8081}          # 8080 lo dejamos libre para otros servicios
+  error:
+    include-stacktrace: never        # nunca devolver un stack trace al cliente
+
+spring:
+  application:
+    name: consulta-service
+  datasource:
+    # Base del monolito (o de su replica). Puerto 3307: el MySQL de Docker de este equipo.
+    url: ${DB_URL:jdbc:mysql://localhost:3307/gestion_agua?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${DB_USERNAME:consulta_ro}      # usuario SOLO LECTURA (ver db/usuario-solo-lectura.sql)
+    password: ${DB_PASSWORD:consulta_ro_pass}
+  jpa:
+    hibernate:
+      # Hibernate solo VALIDA que las entidades coincidan con las tablas; nunca las modifica.
+      # El esquema es del monolito y no se toca.
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: false
+
+springdoc:
+  swagger-ui:
+    url: /openapi/consulta-api.yaml   # Swagger muestra NUESTRO contrato, no uno inferido del codigo
+  api-docs:
+    enabled: true
