@@ -7,6 +7,8 @@ server:
 spring:
   application:
     name: consulta-service
+  jackson:
+    default-property-inclusion: non_null   # campos opcionales ausentes (ej. ultimoPeriodo) no se envian como null
   datasource:
     # Base del monolito (o de su replica). Puerto 3307: el MySQL de Docker de este equipo.
     url: ${DB_URL:jdbc:mysql://localhost:3307/gestion_agua?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
