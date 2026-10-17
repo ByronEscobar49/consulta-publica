@@ -27,3 +27,12 @@ springdoc:
     url: /openapi/consulta-api.yaml   # Swagger muestra NUESTRO contrato, no uno inferido del codigo
   api-docs:
     enabled: true
+
+# Rate limit por IP (segunda barrera; la primera es el captcha que valida el BFF)
+consulta:
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    max-requests: ${RATE_LIMIT_MAX_REQUESTS:30}        # consultas permitidas por IP...
+    window-seconds: ${RATE_LIMIT_WINDOW_SECONDS:60}    # ...dentro de esta ventana
+    # Solo confiar en X-Forwarded-For si este servicio es alcanzable UNICAMENTE a traves del BFF.
+    trust-forwarded-for: ${RATE_LIMIT_TRUST_FORWARDED_FOR:true}
