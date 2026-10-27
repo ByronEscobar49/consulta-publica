@@ -1,0 +1,37 @@
+# Fase 2 - Feature 1 (consulta publica). Se levanta con:  docker compose up -d
+# Paso actual: solo la base de datos REPLICA. El servicio y la web se agregan en los siguientes pasos.
+name: consulta-publica
+
+services:
+  # Copia de solo lectura de la base del monolito (el diagrama la llama "Replica").
+  # Se crea desde cero con los scripts de db/init, en orden alfabetico: esquema -> usuario base ->
+  # datos -> usuario de solo lectura. Los scripts SOLO corren la primera vez (cuando el volumen esta vacio).
+  replica:
+    image: mysql:8.0
+    container_name: consulta-replica
+    restart: unless-stopped
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:?Falta MYSQL_ROOT_PASSWORD - copia .env.example como .env}"
+      MYSQL_DATABASE: gestion_agua
+    volumes:
+      - replica-datos:/var/lib/mysql
+      - ./db/init/01-esquema.sql:/docker-entrypoint-initdb.d/01-esquema.sql:ro
+      - ./db/init/02-usuario-base.sql:/docker-entrypoint-initdb.d/02-usuario-base.sql:ro
+      - ./db/init/03-datos.sql:/docker-entrypoint-initdb.d/03-datos.sql:ro
+      - ./db/usuario-solo-lectura.sql:/docker-entrypoint-initdb.d/04-usuario-solo-lectura.sql:ro
+    healthcheck:
+      # Durante la inicializacion MySQL solo escucha por socket, asi que este ping por TCP
+      # solo funciona cuando los scripts ya terminaron: "healthy" significa "listo para usarse".
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 20s
+    ports:
+      # Solo para inspeccionar desde tu PC (127.0.0.1 = nadie mas en la red lo ve).
+      # 3308 porque el 3307 lo usa el MySQL del monolito.
+      - "127.0.0.1:3308:3306"
+
+volumes:
+  replica-datos:
