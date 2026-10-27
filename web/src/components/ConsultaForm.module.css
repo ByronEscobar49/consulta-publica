@@ -1,0 +1,83 @@
+.formulario {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+  padding: 1.25rem;
+  background: var(--tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: 0.75rem;
+  max-width: 30rem;
+}
+
+.etiqueta {
+  font-weight: 600;
+}
+
+.campo {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+  font-size: 1.05rem;
+  color: var(--texto);
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: 0.5rem;
+  text-transform: uppercase;
+}
+
+.campo::placeholder {
+  text-transform: none;
+}
+
+.campo[aria-invalid="true"] {
+  border-color: var(--malo-texto);
+}
+
+.ayuda {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--suave);
+}
+
+.error {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--malo-texto);
+}
+
+.captcha {
+  margin: 0.5rem 0;
+  min-height: 4.8rem;
+  overflow-x: auto;
+}
+
+.boton {
+  justify-self: start;
+  padding: 0.7rem 1.5rem;
+  font: inherit;
+  font-weight: 700;
+  color: var(--sobre-acento);
+  background: var(--acento);
+  border: 0;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.boton:hover:not(:disabled) {
+  background: var(--acento-hover);
+}
+
+.boton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.alerta {
+  max-width: 30rem;
+  margin: 1rem 0 0;
+  padding: 0.8rem 1rem;
+  background: var(--malo-fondo);
+  color: var(--malo-texto);
+  border-radius: 0.5rem;
+  font-weight: 600;
+}
