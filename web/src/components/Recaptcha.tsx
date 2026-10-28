@@ -17,6 +17,8 @@ interface Props {
 
 interface ParametrosRender {
   sitekey: string;
+  /** "compact" mide 164 px de ancho; "normal" mide 304 px. */
+  size: "normal" | "compact";
   callback: (token: string) => void;
   "expired-callback": () => void;
   "error-callback": () => void;
@@ -31,6 +33,9 @@ declare global {
     __recaptchaListo?: () => void;
   }
 }
+
+/** Ancho en px del captcha en tamano normal. */
+const ANCHO_CAPTCHA_NORMAL = 304;
 
 let cargaDelScript: Promise<void> | null = null;
 
@@ -85,8 +90,12 @@ export default function Recaptcha({ siteKey, onChange, ref }: Props) {
     cargarScript()
       .then(() => {
         if (cancelado || !window.grecaptcha) return;
+        // El captcha normal mide 304 px. En celulares angostos (por ejemplo 360 px quedan ~288 px
+        // utiles) se cortaria, asi que se usa la version compacta que ofrece Google.
+        const anchoDisponible = contenedor.current?.clientWidth || ANCHO_CAPTCHA_NORMAL;
         widgetId.current = window.grecaptcha.render(elemento, {
           sitekey: siteKey,
+          size: anchoDisponible < ANCHO_CAPTCHA_NORMAL ? "compact" : "normal",
           callback: (token) => alCambiar.current(token),
           "expired-callback": () => alCambiar.current(null),
           "error-callback": () => alCambiar.current(null),

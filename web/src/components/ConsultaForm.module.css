@@ -48,7 +48,8 @@
 .captcha {
   margin: 0.5rem 0;
   min-height: 4.8rem;
-  overflow-x: auto;
+  /* Sin overflow: el captcha compacto (ver Recaptcha.tsx) ya cabe en cualquier celular. Un "overflow-x: auto"
+     aqui hacia aparecer una barra vertical, porque el iframe de Google se sale unos px de su caja. */
 }
 
 .boton {
