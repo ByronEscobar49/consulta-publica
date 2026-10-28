@@ -1,5 +1,5 @@
 # Fase 2 - Feature 1 (consulta publica). Se levanta con:  docker compose up -d --build
-# Paso actual: replica + consulta-service. La web se agrega en el siguiente paso.
+# Servicios: replica (MySQL) -> consulta-service (Spring Boot) -> web (Next.js).
 name: consulta-publica
 
 services:
@@ -60,6 +60,34 @@ services:
       # Solo para probar desde tu PC (8082 para no chocar con el 8081 de IntelliJ).
       # En el despliegue final se quita: solo la web debe poder llamar a este servicio.
       - "127.0.0.1:8082:8081"
+
+  # Pagina publica + BFF (Next.js). Es lo unico que el visitante ve: valida el captcha y
+  # llama a consulta-service por la red interna de Docker.
+  web:
+    build:
+      context: ./web
+      args:
+        # Clave PUBLICA: se incrusta en el JavaScript del navegador al compilar.
+        NEXT_PUBLIC_RECAPTCHA_SITE_KEY: "${RECAPTCHA_SITE_KEY:?Falta RECAPTCHA_SITE_KEY - copia .env.example como .env}"
+    container_name: consulta-web
+    restart: unless-stopped
+    depends_on:
+      consulta-service:
+        condition: service_healthy
+    environment:
+      # Dentro de la red de Docker el servicio se llama "consulta-service".
+      CONSULTA_API_URL: "http://consulta-service:8081"
+      # Clave SECRETA: solo existe en el servidor, nunca llega al navegador ni a la imagen.
+      RECAPTCHA_SECRET_KEY: "${RECAPTCHA_SECRET_KEY:?Falta RECAPTCHA_SECRET_KEY - copia .env.example como .env}"
+    healthcheck:
+      # La imagen de Node no trae curl: se usa el fetch que ya incluye Node.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    ports:
+      - "3000:3000"
 
 volumes:
   replica-datos:

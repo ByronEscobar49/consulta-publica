@@ -1,0 +1,9 @@
+# Lo que NO se manda al build de Docker.
+node_modules
+.next
+# IMPORTANTE: los .env* contienen claves; nunca deben terminar dentro de una imagen.
+.env*
+.git
+Dockerfile
+.dockerignore
+*.log
