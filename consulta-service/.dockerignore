@@ -1,0 +1,5 @@
+# Lo que NO se manda al build de Docker (se regenera dentro del contenedor).
+target
+.idea
+*.iml
+*.log

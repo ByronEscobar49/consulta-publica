@@ -1,5 +1,5 @@
-# Fase 2 - Feature 1 (consulta publica). Se levanta con:  docker compose up -d
-# Paso actual: solo la base de datos REPLICA. El servicio y la web se agregan en los siguientes pasos.
+# Fase 2 - Feature 1 (consulta publica). Se levanta con:  docker compose up -d --build
+# Paso actual: replica + consulta-service. La web se agrega en el siguiente paso.
 name: consulta-publica
 
 services:
@@ -32,6 +32,34 @@ services:
       # Solo para inspeccionar desde tu PC (127.0.0.1 = nadie mas en la red lo ve).
       # 3308 porque el 3307 lo usa el MySQL del monolito.
       - "127.0.0.1:3308:3306"
+
+  # Microservicio Spring Boot de solo lectura (Feature 1).
+  consulta-service:
+    build: ./consulta-service
+    container_name: consulta-service
+    restart: unless-stopped
+    depends_on:
+      replica:
+        condition: service_healthy   # no arranca hasta que la replica este lista
+    environment:
+      # Dentro de la red de Docker la replica se llama "replica" y escucha en 3306 (no en 3308).
+      DB_URL: "jdbc:mysql://replica:3306/gestion_agua?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+      DB_USERNAME: consulta_ro          # usuario SOLO LECTURA (db/usuario-solo-lectura.sql)
+      DB_PASSWORD: consulta_ro_pass
+      # La IP real del visitante llega en X-Forwarded-For desde la web. Es seguro confiar en esa
+      # cabecera porque este servicio solo es alcanzable desde la red interna de Docker.
+      RATE_LIMIT_TRUST_FORWARDED_FOR: "true"
+    healthcheck:
+      # Basta con que Tomcat acepte conexiones en 8081 (la imagen trae bash, no curl).
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8081"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+    ports:
+      # Solo para probar desde tu PC (8082 para no chocar con el 8081 de IntelliJ).
+      # En el despliegue final se quita: solo la web debe poder llamar a este servicio.
+      - "127.0.0.1:8082:8081"
 
 volumes:
   replica-datos:
