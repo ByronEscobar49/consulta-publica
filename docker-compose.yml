@@ -28,6 +28,7 @@ services:
       timeout: 5s
       retries: 40
       start_period: 20s
+    networks: [backend]
     ports:
       # Solo para inspeccionar desde tu PC (127.0.0.1 = nadie mas en la red lo ve).
       # 3308 porque el 3307 lo usa el MySQL del monolito.
@@ -56,10 +57,9 @@ services:
       timeout: 3s
       retries: 30
       start_period: 15s
-    ports:
-      # Solo para probar desde tu PC (8082 para no chocar con el 8081 de IntelliJ).
-      # En el despliegue final se quita: solo la web debe poder llamar a este servicio.
-      - "127.0.0.1:8082:8081"
+    # SIN "ports": el servicio no es alcanzable desde fuera de Docker. Solo la web (por la red
+    # "frontend") puede llamarlo, asi que todo visitante pasa antes por el captcha.
+    networks: [backend, frontend]
 
   # Pagina publica + BFF (Next.js). Es lo unico que el visitante ve: valida el captcha y
   # llama a consulta-service por la red interna de Docker.
@@ -86,8 +86,16 @@ services:
       timeout: 5s
       retries: 20
       start_period: 10s
+    networks: [frontend]
     ports:
-      - "3000:3000"
+      - "3000:3000"   # lo unico publicado hacia afuera: la pagina publica
+
+# Redes separadas (defensa en profundidad): la web NO puede llegar a la base de datos.
+#   frontend: web <-> consulta-service
+#   backend : consulta-service <-> replica
+networks:
+  frontend:
+  backend:
 
 volumes:
   replica-datos:
