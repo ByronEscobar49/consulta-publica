@@ -1,0 +1,6 @@
+services:
+  consulta-service:
+    environment:
+      DB_URL: ${EQUIPO_DB_URL}
+      DB_USERNAME: ${EQUIPO_DB_USERNAME}
+      DB_PASSWORD: ${EQUIPO_DB_PASSWORD}
