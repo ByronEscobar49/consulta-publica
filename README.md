@@ -85,6 +85,25 @@ Comandos útiles:
 | Reconstruir solo la web | `docker compose up -d --build web` |
 | Reiniciar la réplica desde cero | `docker compose down -v` y luego `docker compose up -d` |
 
+## Usar la réplica del equipo
+
+Por defecto todo corre contra la réplica local de Docker (códigos `CTR-0001`...`CTR-0007`).
+Opcionalmente se puede apuntar el servicio a la réplica compartida del equipo, que es de solo lectura
+y tiene datos distintos (códigos `CTRD-0001`...):
+
+1. Agrega a tu `.env` (nunca al repositorio) las variables `EQUIPO_DB_URL`, `EQUIPO_DB_USERNAME`
+   y `EQUIPO_DB_PASSWORD`. El `.env.example` trae el formato.
+2. Levanta con los dos archivos:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.equipo.yml up -d --build
+```
+
+Para volver a la réplica local: `docker compose up -d --build`.
+
+Con la réplica del equipo, `CTRD-0001` está al día, `CTRD-0004` tiene 3 boletas con deuda (Q 151.20)
+y `CTRD-0005` tiene 10 (Q 471.60). Las credenciales las da quien administra esa réplica.
+
 ## Datos de prueba
 
 La réplica trae 7 contadores con distintas situaciones, para probar cada caso:
