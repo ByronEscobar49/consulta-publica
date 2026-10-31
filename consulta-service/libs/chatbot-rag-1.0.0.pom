@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- Spring Boot 3.5 + JDK 17, igual que en la Clase 11 -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.6</version>
+        <relativePath/>
+    </parent>
+
+    <!--
+      Este proyecto produce DOS jars en target/:
+        chatbot-rag-1.0.0.jar       → LIBRERÍA: la que otro proyecto agrega en su pom.xml
+        chatbot-rag-1.0.0-exec.jar  → APLICACIÓN: se ejecuta sola (java -jar), la usa el Dockerfile
+    -->
+    <groupId>gt.edu.umg.desarrolloweb</groupId>
+    <artifactId>chatbot-rag</artifactId>
+    <version>1.0.0</version>
+    <name>chatbot-rag</name>
+    <description>Feature 2 - Chatbot con RAG (Oficina del Agua, Fase 2). Librería Spring Boot auto-configurable.</description>
+
+    <properties>
+        <java.version>17</java.version>
+        <spring-ai.version>1.0.1</spring-ai.version>
+        <aws-sdk.version>2.30.11</aws-sdk.version>
+        <springdoc.version>2.8.9</springdoc.version>
+        <openapi-generator.version>7.14.0</openapi-generator.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- El BOM de Spring AI fija versiones compatibles de todos sus módulos -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Igual para el SDK de AWS (DynamoDB) -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws-sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- REST + validación (Bean Validation para @Size, @NotNull del contrato) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <!-- JdbcTemplate + HikariCP (pgvector y lectura del monolito) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+
+        <!-- Spring AI: LLM y embeddings con Ollama -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-ollama</artifactId>
+        </dependency>
+        <!--
+          Spring AI: pgvector SIN su starter. El starter auto-configura el vector
+          store sobre el JdbcTemplate PRINCIPAL de la aplicación; dentro del proyecto
+          de otro equipo ese sería SU JdbcTemplate (su BD). Por eso lo creamos a mano
+          con nuestra propia conexión (ver BasesDeDatosConfig).
+        -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-pgvector-store</artifactId>
+        </dependency>
+
+        <!-- DynamoDB: historial de conversaciones -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>dynamodb</artifactId>
+        </dependency>
+
+        <!-- Drivers: Postgres (pgvector, BD propia) y MySQL (monolito, solo lectura) -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Swagger UI (sirve nuestro contrato en /swagger-ui/index.html) -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!--
+              classifier=exec: el jar ejecutable (con Spring Boot adentro) sale como
+              *-exec.jar, y el jar NORMAL queda como artefacto principal. El jar normal
+              es el que sirve como dependencia: un jar ejecutable de Spring Boot NO se
+              puede usar como librería (sus clases van dentro de BOOT-INF/).
+            -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <classifier>exec</classifier>
+                    <mainClass>chatbotrag.standalone.ChatbotApplication</mainClass>
+                </configuration>
+            </plugin>
+
+            <!-- Contract-first: del YAML a interfaces Java + DTOs (en target/, no se versiona) -->
+            <plugin>
+                <groupId>org.openapitools</groupId>
+                <artifactId>openapi-generator-maven-plugin</artifactId>
+                <version>${openapi-generator.version}</version>
+                <executions>
+                    <execution>
+                        <id>chatbot-api</id>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <inputSpec>${project.basedir}/src/main/resources/static/openapi/chatbot-api.yaml</inputSpec>
+                            <generatorName>spring</generatorName>
+                            <apiPackage>gt.edu.umg.desarrolloweb.chatbot.api.spec</apiPackage>
+                            <modelPackage>gt.edu.umg.desarrolloweb.chatbot.api.dto</modelPackage>
+                            <modelNameSuffix>Dto</modelNameSuffix>
+                            <skipValidateSpec>false</skipValidateSpec>
+                            <generateSupportingFiles>false</generateSupportingFiles>
+                            <configOptions>
+                                <useSpringBoot3>true</useSpringBoot3>
+                                <interfaceOnly>true</interfaceOnly>
+                                <skipDefaultInterface>true</skipDefaultInterface>
+                                <useBeanValidation>true</useBeanValidation>
+                                <useTags>true</useTags>
+                                <openApiNullable>false</openApiNullable>
+                                <documentationProvider>none</documentationProvider>
+                                <annotationLibrary>none</annotationLibrary>
+                            </configOptions>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

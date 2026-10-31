@@ -1,5 +1,6 @@
-# Fase 2 - Feature 1 (consulta publica). Se levanta con:  docker compose up -d --build
-# Servicios: replica (MySQL) -> consulta-service (Spring Boot) -> web (Next.js).
+# Fase 2 - Feature 1 (consulta publica) + Feature 2 (chatbot RAG integrado).
+# Se levanta con:  docker compose up -d --build
+# Servicios: replica (MySQL) -> consulta-service (Spring Boot + chatbot) -> web (Next.js).
 name: consulta-publica
 
 services:
@@ -34,7 +35,46 @@ services:
       # 3308 porque el 3307 lo usa el MySQL del monolito.
       - "127.0.0.1:3308:3306"
 
-  # Microservicio Spring Boot de solo lectura (Feature 1).
+  # ---- Feature 2: infraestructura del chatbot (RAG). Solo en la red interna "backend". ----
+  chatbot-vector:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: chatbot
+      POSTGRES_USER: chatbot
+      POSTGRES_PASSWORD: chatbot        # solo desarrollo
+    volumes:
+      - chatbot-pgvector:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatbot -d chatbot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [backend]
+
+  chatbot-ollama:
+    image: ollama/ollama:0.9.6
+    restart: unless-stopped
+    volumes:
+      - chatbot-ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+    networks: [backend]
+
+  chatbot-dynamodb:
+    image: amazon/dynamodb-local:latest
+    restart: unless-stopped
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
+    working_dir: /home/dynamodblocal
+    user: root
+    volumes:
+      - chatbot-dynamodb:/home/dynamodblocal/data
+    networks: [backend]
+
+  # Microservicio Spring Boot de solo lectura (Feature 1) con el chatbot (Feature 2) como libreria.
   consulta-service:
     build: ./consulta-service
     container_name: consulta-service
@@ -42,6 +82,12 @@ services:
     depends_on:
       replica:
         condition: service_healthy   # no arranca hasta que la replica este lista
+      chatbot-vector:
+        condition: service_healthy
+      chatbot-ollama:
+        condition: service_healthy
+      chatbot-dynamodb:
+        condition: service_started
     environment:
       # Dentro de la red de Docker la replica se llama "replica" y escucha en 3306 (no en 3308).
       DB_URL: "jdbc:mysql://replica:3306/gestion_agua?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
@@ -50,19 +96,29 @@ services:
       # La IP real del visitante llega en X-Forwarded-For desde la web. Es seguro confiar en esa
       # cabecera porque este servicio solo es alcanzable desde la red interna de Docker.
       RATE_LIMIT_TRUST_FORWARDED_FOR: "true"
+      # --- Chatbot (Feature 2): se configura por variables de entorno ---
+      CHATBOT_VECTORDB_URL: "jdbc:postgresql://chatbot-vector:5432/chatbot"
+      CHATBOT_VECTORDB_USERNAME: chatbot
+      CHATBOT_VECTORDB_PASSWORD: chatbot
+      SPRING_AI_OLLAMA_BASEURL: "http://chatbot-ollama:11434"
+      CHATBOT_HISTORIAL_ENABLED: "true"
+      CHATBOT_HISTORIAL_ENDPOINT: "http://chatbot-dynamodb:8000"
+      AWS_ACCESS_KEY_ID: local          # DynamoDB Local pide credenciales, pero no las valida
+      AWS_SECRET_ACCESS_KEY: local
     healthcheck:
       # Basta con que Tomcat acepte conexiones en 8081 (la imagen trae bash, no curl).
+      # start_period largo: la primera vez Ollama descarga ~3 GB de modelos antes de abrir el puerto.
       test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8081"]
       interval: 5s
       timeout: 3s
       retries: 30
-      start_period: 15s
+      start_period: 30m
     # SIN "ports": el servicio no es alcanzable desde fuera de Docker. Solo la web (por la red
     # "frontend") puede llamarlo, asi que todo visitante pasa antes por el captcha.
     networks: [backend, frontend]
 
   # Pagina publica + BFF (Next.js). Es lo unico que el visitante ve: valida el captcha y
-  # llama a consulta-service por la red interna de Docker.
+  # llama a consulta-service por la red interna de Docker. Incluye el widget del chat.
   web:
     build:
       context: ./web
@@ -77,6 +133,7 @@ services:
     environment:
       # Dentro de la red de Docker el servicio se llama "consulta-service".
       CONSULTA_API_URL: "http://consulta-service:8081"
+      CHATBOT_SERVICE_URL: "http://consulta-service:8081"
       # Clave SECRETA: solo existe en el servidor, nunca llega al navegador ni a la imagen.
       RECAPTCHA_SECRET_KEY: "${RECAPTCHA_SECRET_KEY:?Falta RECAPTCHA_SECRET_KEY - copia .env.example como .env}"
     healthcheck:
@@ -92,10 +149,13 @@ services:
 
 # Redes separadas (defensa en profundidad): la web NO puede llegar a la base de datos.
 #   frontend: web <-> consulta-service
-#   backend : consulta-service <-> replica
+#   backend : consulta-service <-> replica, chatbot-vector, chatbot-ollama, chatbot-dynamodb
 networks:
   frontend:
   backend:
 
 volumes:
   replica-datos:
+  chatbot-pgvector:
+  chatbot-ollama:
+  chatbot-dynamodb:

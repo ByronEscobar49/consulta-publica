@@ -3,10 +3,15 @@
 FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /app
 COPY pom.xml .
+# La libreria del chatbot (Feature 2) no esta en Maven Central: se instala aqui desde libs/.
+COPY libs ./libs
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -B -ntp install:install-file \
+      -Dfile=libs/chatbot-rag-1.0.0.jar \
+      -DpomFile=libs/chatbot-rag-1.0.0.pom
 COPY src ./src
 # La cache de ~/.m2 hace que los builds siguientes no vuelvan a descargar las dependencias.
 RUN --mount=type=cache,target=/root/.m2 mvn -B -ntp -DskipTests package
-
 # ---------- Etapa 2: ejecutar ----------
 # Imagen final: solo Java (sin Maven ni codigo fuente), mas pequena y con menos superficie de ataque.
 FROM eclipse-temurin:17-jre

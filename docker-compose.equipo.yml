@@ -4,3 +4,8 @@ services:
       DB_URL: ${EQUIPO_DB_URL}
       DB_USERNAME: ${EQUIPO_DB_USERNAME}
       DB_PASSWORD: ${EQUIPO_DB_PASSWORD}
+      # El chatbot lee tarifas, formas de pago y sectores de la misma replica (solo lectura).
+      CHATBOT_MONOLITO_ENABLED: "true"
+      CHATBOT_MONOLITO_URL: ${EQUIPO_DB_URL}
+      CHATBOT_MONOLITO_USERNAME: ${EQUIPO_DB_USERNAME}
+      CHATBOT_MONOLITO_PASSWORD: ${EQUIPO_DB_PASSWORD}

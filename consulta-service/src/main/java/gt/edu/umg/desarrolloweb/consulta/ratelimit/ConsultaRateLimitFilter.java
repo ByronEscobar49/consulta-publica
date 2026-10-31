@@ -23,19 +23,19 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * arma el JSON de error a mano con el mismo esquema "Error" del contrato.
  */
 @Component
-public class RateLimitFilter extends OncePerRequestFilter {
+public class ConsultaRateLimitFilter extends OncePerRequestFilter {
 
-    private static final Logger log = LoggerFactory.getLogger(RateLimitFilter.class);
+    private static final Logger log = LoggerFactory.getLogger(ConsultaRateLimitFilter.class);
 
     private final RateLimiter rateLimiter;
     private final ObjectMapper objectMapper;
     private final boolean enabled;
     private final boolean trustForwardedFor;
 
-    public RateLimitFilter(RateLimiter rateLimiter,
-                           ObjectMapper objectMapper,
-                           @Value("${consulta.rate-limit.enabled:true}") boolean enabled,
-                           @Value("${consulta.rate-limit.trust-forwarded-for:true}") boolean trustForwardedFor) {
+    public ConsultaRateLimitFilter(RateLimiter rateLimiter,
+                                   ObjectMapper objectMapper,
+                                   @Value("${consulta.rate-limit.enabled:true}") boolean enabled,
+                                   @Value("${consulta.rate-limit.trust-forwarded-for:true}") boolean trustForwardedFor) {
         this.rateLimiter = rateLimiter;
         this.objectMapper = objectMapper;
         this.enabled = enabled;
