@@ -19,9 +19,9 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
  * en el servidor y el cliente solo ve un mensaje generico.
  */
 @RestControllerAdvice
-public class GlobalExceptionHandler {
+public class ConsultaExceptionHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final Logger log = LoggerFactory.getLogger(ConsultaExceptionHandler.class);
 
     @ExceptionHandler(ContadorNoEncontradoException.class)
     public ResponseEntity<ErrorDto> handleNotFound(ContadorNoEncontradoException ex) {
