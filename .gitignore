@@ -12,6 +12,7 @@
 
 # Package Files #
 *.jar
+!consulta-service/libs/*.jar
 *.war
 *.nar
 *.ear
