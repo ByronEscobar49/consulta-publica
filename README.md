@@ -1,3 +1,7 @@
+# Byron Yobani Escobar Quiñónez 
+# Canet: 0905-23-6691
+# Consulta Publica 
+
 # Consulta pública de estado de cuenta (con asistente virtual)
 
 Oficina Municipal de Agua Potable · **Desarrollo Web 2026 · Fase 2 · Feature 1** (consulta pública) **+ integración de la Feature 2** (chatbot RAG)
